@@ -43,13 +43,7 @@
 
         startButton.addEventListener('click', async () => {
             try {
-                // 解像度を指定してカメラを起動
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 },  // 横幅を640ピクセルに設定
-                        height: { ideal: 480 }  // 縦幅を480ピクセルに設定
-                    }
-                });
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
                 captureButton.disabled = false;
                 stopButton.disabled = false;
@@ -64,50 +58,49 @@
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // 現在の日付と時刻を取得してフォーマット
-            const now = new Date();
-            const timestamp = now.toISOString().replace(/[:\-]/g, '').replace(/\..+/, '');
+            // 画像を圧縮してDataURLに変換
+            latestDataURL = canvas.toDataURL('image/png', 0.3);
 
-            // ファイル名に日時と位置情報を追加
-            latestFileName = `${timestamp}`;
+            // 現在の日付を取得してフォーマット（時間部分を除く）
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+
+            // ファイル名に日付と位置情報を追加
+            latestFileName = `photo_${dateStr}`;
             if (latitude !== null && longitude !== null) {
                 latestFileName += `_lat${latitude.toFixed(6)}_lon${longitude.toFixed(6)}`;
             }
             latestFileName += '.png';
 
-            // 自動的にファイルとして保存するためのリンクを作成
-            const link = document.createElement('a');
-            link.href = latestDataURL;
-            link.download = latestFileName;  // 日時情報と位置情報を含むファイル名
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);  // リンクを削除
-
             sendButton.disabled = false;
         });
 
         sendButton.addEventListener('click', () => {
-            if (latestDataURL && latestFileName) {
-                const webAppUrl = 'https://script.google.com/macros/s/AKfycbygqpM0xJbpUiz4LlOCq73AhHF6L2n3S5qYrFoR6WH0keEhhB-wmJuywmf7iTvuEZrUhg/exec'; // ここにPost.GsのWebApp URLを指定する
-                const blob = dataURItoBlob(latestDataURL);
+            const webAppUrl = 'https://script.google.com/macros/s/AKfycbzjqKeaeVcidipJ2YNobFW5lHg4ogXCxjqiV9xWCqSDaUdoqcneM9WvvMY8HvUa7Om0KQ/exec';
 
-                const formData = new FormData();
-                formData.append('file', blob, latestFileName);
+            // DataURLからBase64データ部分のみを抽出
+            const base64Data = latestDataURL.split(',')[1];
 
-                fetch(webAppUrl, {
-                    method: 'POST',
-                    body: formData
+            fetch(webAppUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    fileName: latestFileName,
+                    mimeType: 'image/png',
+                    data: base64Data // Base64データ部分のみを送信
                 })
-                    .then(response => response.text())
-                    .then(result => {
-                        console.log('写真が送信されました:', result);
-                        alert('写真が送信されました');
-                    })
-                    .catch(error => {
-                        console.error('写真の送信に失敗しました:', error);
-                        alert('写真の送信に失敗しました');
-                    });
-            }
+            })
+                .then(response => response.text())
+                .then(result => {
+                    console.log('写真が送信されました:', result);
+                    alert('写真が送信されました');
+                })
+                .catch(error => {
+                    console.error('写真の送信に失敗しました:', error);
+                    alert('写真の送信に失敗しました');
+                });
         });
 
         stopButton.addEventListener('click', () => {
@@ -118,17 +111,6 @@
             sendButton.disabled = true;
             stopButton.disabled = true;
         });
-
-        function dataURItoBlob(dataURI) {
-            const byteString = atob(dataURI.split(',')[1]);
-            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], { type: mimeString });
-        }
     </script>
 </body>
 

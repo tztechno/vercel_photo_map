@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カメラ操作と日時・位置情報付き写真保存</title>
+    <title>カメラ操作とファイル送信</title>
 </head>
 
 <body>
-    <h1>カメラ操作と日時・位置情報付き写真保存</h1>
+    <h1>カメラ操作とファイル送信</h1>
     <button id="startButton">カメラを起動</button>
     <button id="captureButton" disabled>写真を撮影</button>
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
     <button id="sendButton" disabled>写真を送信</button>
     <button id="stopButton" disabled>カメラを切断</button>
     <video id="video" width="640" height="480" autoplay></video>
@@ -23,23 +24,10 @@
         const captureButton = document.getElementById('captureButton');
         const sendButton = document.getElementById('sendButton');
         const stopButton = document.getElementById('stopButton');
+        const fileInput = document.getElementById('fileInput');
 
         let stream;
-        let latitude = null;
-        let longitude = null;
-        let latestDataURL = null;
-        let latestFileName = null;
-
-        // 位置情報を取得
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                latitude = position.coords.latitude;
-                longitude = position.coords.longitude;
-            },
-            (error) => {
-                console.error('位置情報の取得に失敗しました:', error);
-            }
-        );
+        let latestFileURL = null;
 
         startButton.addEventListener('click', async () => {
             try {
@@ -58,42 +46,44 @@
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            latestDataURL = canvas.toDataURL('image/png');
+            // 画像をBase64形式で保存
+            const dataURL = canvas.toDataURL('image/png');
+            // データURLをBlobに変換
+            fetch(dataURL)
+                .then(res => res.blob())
+                .then(blob => {
+                    // BlobをURLに変換して保存
+                    latestFileURL = URL.createObjectURL(blob);
 
-            // 現在の日付と時刻を取得してフォーマット
-            const now = new Date();
-            const timestamp = now.toISOString().replace(/[:\-]/g, '').replace(/\..+/, '');
+                    // 自動的にダウンロードリンクを作成
+                    const link = document.createElement('a');
+                    link.href = latestFileURL;
+                    link.download = 'captured_image.png'; // 保存するファイル名
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
 
-            // ファイル名に日時と位置情報を追加
-            latestFileName = `${timestamp}`;
-            if (latitude !== null && longitude !== null) {
-                latestFileName += `_lat${latitude.toFixed(6)}_lon${longitude.toFixed(6)}`;
-            }
-            latestFileName += '.png';
-
-            // 自動的にファイルとして保存するためのリンクを作成
-            const link = document.createElement('a');
-            link.href = latestDataURL;
-            link.download = latestFileName;  // 日時情報と位置情報を含むファイル名
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);  // リンクを削除
-
-            sendButton.disabled = false;
+                    sendButton.disabled = false; // ファイルが準備できたら送信ボタンを有効にする
+                })
+                .catch(error => console.error('画像の保存に失敗しました:', error));
         });
 
         sendButton.addEventListener('click', () => {
-            if (latestDataURL && latestFileName) {
-                const webAppUrl = 'https://script.google.com/macros/s/AKfycbwd5gDRMwfEqcLBscNm-5QtvlyXz3s1dFXJWLCFT0V77jXDvtg6R4Hewql85pB0zii1Wg/exec'; // ここにPost.GsのWebApp URLを指定する
-                const blob = dataURItoBlob(latestDataURL);
-
+            if (latestFileURL) {
                 const formData = new FormData();
-                formData.append('file', blob, latestFileName);
+                // 最新のファイルを指定して送信
+                fetch(latestFileURL)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        formData.append('file', blob, 'captured_image.png');
 
-                fetch(webAppUrl, {
-                    method: 'POST',
-                    body: formData
-                })
+                        const webAppUrl = 'https://script.google.com/macros/s/AKfycbyGLSCLXBXbeuNsrPV3x2i6YP25Kx_SWU8s43HOY2-zuAJEUYhnehrEAthENfpJlrqAPw/exec'; // 実際のURLに置き換えてください
+
+                        return fetch(webAppUrl, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    })
                     .then(response => response.text())
                     .then(result => {
                         console.log('写真が送信されました:', result);
@@ -114,17 +104,6 @@
             sendButton.disabled = true;
             stopButton.disabled = true;
         });
-
-        function dataURItoBlob(dataURI) {
-            const byteString = atob(dataURI.split(',')[1]);
-            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], { type: mimeString });
-        }
     </script>
 </body>
 

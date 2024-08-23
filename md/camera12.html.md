@@ -11,8 +11,8 @@
     <h1>カメラ操作と日時・位置情報付き写真保存</h1>
     <button id="startButton">カメラを起動</button>
     <button id="captureButton" disabled>写真を撮影</button>
-    <button id="sendButton" disabled>写真を送信</button>
     <button id="stopButton" disabled>カメラを切断</button>
+    <button id="sendButton" disabled>写真を選択・送信</button>
     <video id="video" width="640" height="480" autoplay></video>
     <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
 
@@ -21,8 +21,8 @@
         const canvas = document.getElementById('canvas');
         const startButton = document.getElementById('startButton');
         const captureButton = document.getElementById('captureButton');
-        const sendButton = document.getElementById('sendButton');
         const stopButton = document.getElementById('stopButton');
+        const sendButton = document.getElementById('sendButton');
 
         let stream;
         let latitude = null;
@@ -58,54 +58,54 @@
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // 画像を圧縮（例: 0.7の品質で変換）
+            // 画像を圧縮してDataURLに変換
             latestDataURL = canvas.toDataURL('image/png', 0.3);
 
-            // 現在の日付と時刻を取得してフォーマット
+            // 現在の日付を取得してフォーマット（時間部分を除く）
             const now = new Date();
-            const timestamp = now.toISOString().replace(/[:\-]/g, '').replace(/\..+/, '');
+            const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
 
-            // ファイル名に日時と位置情報を追加
-            latestFileName = `${timestamp}`;
+            // ファイル名に日付と位置情報を追加
+            latestFileName = `photo_${dateStr}`;
             if (latitude !== null && longitude !== null) {
                 latestFileName += `_lat${latitude.toFixed(6)}_lon${longitude.toFixed(6)}`;
             }
             latestFileName += '.png';
 
-            // 自動的にファイルとして保存するためのリンクを作成
-            const link = document.createElement('a');
-            link.href = latestDataURL;
-            link.download = latestFileName;  // 日時情報と位置情報を含むファイル名
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);  // リンクを削除
-
             sendButton.disabled = false;
         });
 
         sendButton.addEventListener('click', () => {
-            if (latestDataURL && latestFileName) {
-                const webAppUrl = 'https://script.google.com/macros/s/AKfycbygqpM0xJbpUiz4LlOCq73AhHF6L2n3S5qYrFoR6WH0keEhhB-wmJuywmf7iTvuEZrUhg/exec'; // ここにPost.GsのWebApp URLを指定する
-                const blob = dataURItoBlob(latestDataURL);
+            const webAppUrl = 'https://script.google.com/macros/s/AKfycbwRpJCDekKPs6q0r4_GYPTvfMRzgspvpDp1wYLIkLZqQERzqG9ALoKpy2asaepvNevYsg/exec';
 
-                const formData = new FormData();
-                formData.append('file', blob, latestFileName);
+            const canvas = document.getElementById('canvas');
+            const fileName = 'uploaded_image.png'; // 送信するファイル名
+            const dataURL = canvas.toDataURL('image/png'); // 画像データをBase64形式で取得
+            const base64Data = dataURL.split(',')[1]; // "data:image/png;base64,"の部分を除去
 
-                fetch(webAppUrl, {
-                    method: 'POST',
-                    body: formData
+            const postData = JSON.stringify({
+                content: base64Data,
+                fileName: fileName
+            });
+
+            fetch(webAppUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: postData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('File uploaded successfully:', data.url);
+                    alert('File uploaded successfully');
                 })
-                    .then(response => response.text())
-                    .then(result => {
-                        console.log('写真が送信されました:', result);
-                        alert('写真が送信されました');
-                    })
-                    .catch(error => {
-                        console.error('写真の送信に失敗しました:', error);
-                        alert('写真の送信に失敗しました');
-                    });
-            }
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error uploading file');
+                });
         });
+
 
         stopButton.addEventListener('click', () => {
             const tracks = stream.getTracks();
@@ -115,17 +115,7 @@
             sendButton.disabled = true;
             stopButton.disabled = true;
         });
-
-        function dataURItoBlob(dataURI) {
-            const byteString = atob(dataURI.split(',')[1]);
-            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], { type: mimeString });
-        }
+    
     </script>
 </body>
 
