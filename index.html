@@ -1,203 +1,128 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map with Geolocation and Image Markers</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <style>
-        body,
-        html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #map {
-            flex-grow: 1;
-            width: 100%;
-        }
-
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 5px;
-            border-radius: 5px;
-        }
-
-        button {
-            padding: 5px 10px;
-            font-size: 14px;
-            margin: 2px;
-        }
-
-        #position_view {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            z-index: 1000;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 5px;
-            border-radius: 5px;
-            font-size: 12px;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        #loadingMessage {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2000;
-            background-color: rgba(255, 255, 0, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
+    <title>カメラ操作と日時・位置情報付き写真保存</title>
 </head>
 
 <body>
-    <div id="map"></div>
-    <div id="controls">
-        <button onclick="stopTracking()" aria-label="Stop tracking location">Stop Tracking</button>
-        <button onclick="summarize()" aria-label="Summarize location data">Summarize</button>
-        <button onclick="getPoints()" aria-label="Get all location points">Get Points</button>
-    </div>
-    <div id="loadingMessage">処理中...</div>
-    <div id="position_view"></div>
+    <h1>カメラ操作と日時・位置情報付き写真保存</h1>
+    <button id="startButton">カメラを起動</button>
+    <button id="captureButton" disabled>写真を撮影</button>
+    <button id="sendButton" disabled>写真を送信</button>
+    <button id="stopButton" disabled>カメラを切断</button>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
 
     <script>
-        var watch_id;
-        var lat0 = 35.6895;
-        var lon0 = 139.6917;
-        var map;
-        var currentMarker;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startButton');
+        const captureButton = document.getElementById('captureButton');
+        const sendButton = document.getElementById('sendButton');
+        const stopButton = document.getElementById('stopButton');
 
-        var webAppUrl1 = 'https://script.google.com/macros/s/AKfycbxS74yC3nidG1tkdVqVVPme3fyWL22RDR8N5ABGd653F4b4Hzf_vFYV-23VwHBUh1jFqA/exec';
-        
-        var webAppUrl2 = 'https://script.google.com/macros/s/AKfycbxturkakiIhqMY-KSsFTYvGWrH7X1dH_QoU8oTljD7vh8j0wvywF3llIcELVzS0yeyuTA/exec';
+        let stream;
+        let latitude = null;
+        let longitude = null;
+        let latestDataURL = null;
+        let latestFileName = null;
 
-        function startTracking() {
-            watch_id = navigator.geolocation.watchPosition(
-                updatePosition,
-                handleLocationError,
-                { "enableHighAccuracy": true, "timeout": 20000, "maximumAge": 5000 }
-            );
-        }
-
-        function stopTracking() {
-            if (watch_id) {
-                navigator.geolocation.clearWatch(watch_id);
-                watch_id = null;
+        // 位置情報を取得
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+            },
+            (error) => {
+                console.error('位置情報の取得に失敗しました:', error);
             }
-        }
+        );
 
-        function handleLocationError(error) {
-            let errorMessage;
-            switch (error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMessage = "位置情報の利用が許可されていません。";
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMessage = "位置情報が取得できません。";
-                    break;
-                case error.TIMEOUT:
-                    errorMessage = "位置情報の取得がタイムアウトしました。";
-                    break;
-                default:
-                    errorMessage = "位置情報の取得中にエラーが発生しました。";
+        startButton.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                captureButton.disabled = false;
+                stopButton.disabled = false;
+            } catch (error) {
+                console.error('カメラの起動に失敗しました:', error);
             }
-            alert(errorMessage);
-        }
-
-        function updatePosition(position) {
-            lat0 = position.coords.latitude;
-            lon0 = position.coords.longitude;
-
-            var geo_text = `緯度: ${lat0.toFixed(6)}, 経度: ${lon0.toFixed(6)}`;
-            document.getElementById('position_view').innerText = geo_text;
-
-            if (!map) {
-                map = L.map('map').setView([lat0, lon0], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-            } else {
-                map.setView([lat0, lon0]);
-            }
-
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-            }
-            currentMarker = L.marker([lat0, lon0]).addTo(map)
-                .bindPopup("<b>HERE!</b>")
-                .openPopup();
-        }
-
-        function summarize() {
-            document.getElementById('loadingMessage').style.display = 'block';
-
-            fetch(webAppUrl1)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(message => {
-                    document.getElementById('loadingMessage').style.display = 'none';
-                    alert(message);
-                })
-                .catch(error => {
-                    document.getElementById('loadingMessage').style.display = 'none';
-                    console.error('Error:', error);
-                    alert('エラーが発生しました。後ほど再試行してください。');
-                });
-        }
-
-        function getPoints() {
-            document.getElementById('loadingMessage').style.display = 'block';
-
-            fetch(webAppUrl2)
-                .then(response => response.json())
-                .then(data => {
-                    data.forEach(point => {
-                        var marker = L.marker([point.lat, point.lon], {
-                            icon: L.icon({
-                                iconUrl: point.path, // 3列目のパスを使用
-                                iconSize: [32, 32],  // アイコンのサイズ
-                                iconAnchor: [16, 32], // アンカーの位置
-                                popupAnchor: [0, -32] // ポップアップのアンカー位置
-                            })
-                        }).addTo(map);
-
-                        marker.on('click', function () {
-                            window.open(point.path, '_blank'); // クリックで画像を新しいウィンドウで開く
-                        });
-                    });
-                    document.getElementById('loadingMessage').style.display = 'none';
-                })
-                .catch(error => {
-                    console.error('Error fetching the data:', error);
-                    document.getElementById('loadingMessage').style.display = 'none';
-                    alert('データの取得中にエラーが発生しました。後ほど再試行してください。');
-                });
-        }
-
-        document.addEventListener("DOMContentLoaded", function () {
-            startTracking();
         });
+
+        captureButton.addEventListener('click', () => {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 現在の日付と時刻を取得してフォーマット
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:\-]/g, '').replace(/\..+/, '');
+
+            // ファイル名に日時と位置情報を追加
+            latestFileName = `${timestamp}`;
+            if (latitude !== null && longitude !== null) {
+                latestFileName += `_lat${latitude.toFixed(6)}_lon${longitude.toFixed(6)}`;
+            }
+            latestFileName += '.png';
+
+            // 自動的にファイルとして保存するためのリンクを作成
+            const link = document.createElement('a');
+            link.href = latestDataURL;
+            link.download = latestFileName;  // 日時情報と位置情報を含むファイル名
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);  // リンクを削除
+
+            sendButton.disabled = false;
+        });
+
+        sendButton.addEventListener('click', () => {
+            if (latestDataURL && latestFileName) {
+                const webAppUrl = 'https://script.google.com/macros/s/AKfycbygqpM0xJbpUiz4LlOCq73AhHF6L2n3S5qYrFoR6WH0keEhhB-wmJuywmf7iTvuEZrUhg/exec'; // ここにPost.GsのWebApp URLを指定する
+                const blob = dataURItoBlob(latestDataURL);
+
+                const formData = new FormData();
+                formData.append('file', blob, latestFileName);
+
+                fetch(webAppUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.text())
+                    .then(result => {
+                        console.log('写真が送信されました:', result);
+                        alert('写真が送信されました');
+                    })
+                    .catch(error => {
+                        console.error('写真の送信に失敗しました:', error);
+                        alert('写真の送信に失敗しました');
+                    });
+            }
+        });
+
+        stopButton.addEventListener('click', () => {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            video.srcObject = null;
+            captureButton.disabled = true;
+            sendButton.disabled = true;
+            stopButton.disabled = true;
+        });
+
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], { type: mimeString });
+        }
     </script>
 </body>
 
