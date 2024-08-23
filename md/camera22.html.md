@@ -98,7 +98,7 @@
         });
 
         function sendFileToGoogleDrive(file) {
-            const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIj9YikSWa5jcZpEny_sU4JeAhcNwsjq9A_NHSVK-MbDq1HSqCoRefbF3o2CkTaaO5sw/exec'
+            const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw93_dkhcUdjMN89v_6EzhiIQQp-RHQk3oa1aYlPml3kv-Y0s3cH827hddS-BSKK87s5A/exec'
 
             const reader = new FileReader();
             reader.onload = function (e) {
