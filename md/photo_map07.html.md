@@ -86,7 +86,8 @@
 
         var webAppUrl1 = 'https://script.google.com/macros/s/AKfycbxS74yC3nidG1tkdVqVVPme3fyWL22RDR8N5ABGd653F4b4Hzf_vFYV-23VwHBUh1jFqA/exec';
         
-        var webAppUrl2 = 'https://script.google.com/macros/s/AKfycbxturkakiIhqMY-KSsFTYvGWrH7X1dH_QoU8oTljD7vh8j0wvywF3llIcELVzS0yeyuTA/exec';
+        var webAppUrl2 = 'https://script.google.com/macros/s/AKfycbwQyaR1pi5RZzZOpWkyO4MFuonJsKMvV7knpQFM5N_-C4g6n7kHVwNmAHojMWQj4102xw/exec'
+        // old 'https://script.google.com/macros/s/AKfycbxturkakiIhqMY-KSsFTYvGWrH7X1dH_QoU8oTljD7vh8j0wvywF3llIcELVzS0yeyuTA/exec';
 
         function startTracking() {
             watch_id = navigator.geolocation.watchPosition(
@@ -186,6 +187,9 @@
                             window.open(point.path, '_blank'); // クリックで画像を新しいウィンドウで開く
                         });
                     });
+
+                    //map.fitBounds(geojsonLayer.getBounds());
+
                     document.getElementById('loadingMessage').style.display = 'none';
                 })
                 .catch(error => {

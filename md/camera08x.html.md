@@ -17,8 +17,6 @@
     <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
 
     <script>
-        // = camera07.html
-
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const startButton = document.getElementById('startButton');
@@ -45,7 +43,13 @@
 
         startButton.addEventListener('click', async () => {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // 解像度を指定してカメラを起動
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },  // 横幅を640ピクセルに設定
+                        height: { ideal: 480 }  // 縦幅を480ピクセルに設定
+                    }
+                });
                 video.srcObject = stream;
                 captureButton.disabled = false;
                 stopButton.disabled = false;
@@ -59,9 +63,6 @@
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // 画像を圧縮（例: 0.7の品質で変換）
-            latestDataURL = canvas.toDataURL('image/png', 0.3);
 
             // 現在の日付と時刻を取得してフォーマット
             const now = new Date();

@@ -1,5 +1,6 @@
 camara.html:take photo
-index.html:show map with photo
+photo_map.html:show map with photo
+index.html = camara.html
 
 https://github.com/tztechnohttps://github.com/tztechno/vercel_photo_map/vercel_photo_map
 
@@ -13,3 +14,4 @@ git pull
 git add .
 git commit -m "2024-08-23"
 git push -u origin master
+
