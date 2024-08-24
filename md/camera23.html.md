@@ -26,8 +26,7 @@
             height: auto;
             margin: 20px auto;
             display: none;
-            border: 1px solid #000;
-            /* 枠を追加 */
+            border: 1px solid #000; /* 枠を追加 */
         }
 
         #photoCanvas {
@@ -139,34 +138,34 @@
             reader.readAsDataURL(file);
         }
 
-        // for smartphone
+    // for smartphone
+    
+    let currentFacingMode = 'user'; // 初期値は前面カメラ
 
-        let currentFacingMode = 'user'; // 初期値は前面カメラ
+    document.getElementById('cameraOn').addEventListener('click', async function () {
+        try {
+            const constraints = {
+                video: { facingMode: currentFacingMode }
+            };
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            video.style.display = 'block';
+        } catch (err) {
+            console.error('カメラの起動に失敗しました:', err);
+        }
+    });
 
-        document.getElementById('cameraOn').addEventListener('click', async function () {
-            try {
-                const constraints = {
-                    video: { facingMode: currentFacingMode }
-                };
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                video.style.display = 'block';
-            } catch (err) {
-                console.error('カメラの起動に失敗しました:', err);
-            }
-        });
-
-        // カメラ切り替えボタンを追加
-        const switchCameraButton = document.createElement('button');
-        switchCameraButton.textContent = 'Switch Camera';
-        switchCameraButton.addEventListener('click', function () {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            document.getElementById('cameraOn').click(); // カメラを再起動
-        });
-        document.querySelector('.button-container').appendChild(switchCameraButton);
+    // カメラ切り替えボタンを追加
+    const switchCameraButton = document.createElement('button');
+    switchCameraButton.textContent = 'Switch Camera';
+    switchCameraButton.addEventListener('click', function () {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        document.getElementById('cameraOn').click(); // カメラを再起動
+    });
+    document.querySelector('.button-container').appendChild(switchCameraButton);
 
 
 
@@ -177,3 +176,4 @@
 </body>
 
 </html>
+
