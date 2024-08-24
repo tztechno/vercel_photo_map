@@ -68,34 +68,34 @@
         }
 
 
-        // 位置情報を取得する関数
-        function getLocation() {
-            return new Promise((resolve, reject) => {
-                if ("geolocation" in navigator) {
-                    navigator.geolocation.getCurrentPosition(
-                        position => resolve(position.coords),
-                        error => reject(error)
-                    );
-                } else {
-                    reject(new Error("Geolocation is not supported by this browser."));
-                }
-            });
-        }
-
-        // ファイル名を生成する関数
-        async function generateFileName() {
-            const now = new Date();
-            const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-
-            try {
-                const coords = await getLocation();
-                return `${dateStr}_${coords.latitude}_${coords.longitude}.jpg`;
-            } catch (error) {
-                console.error("Error getting location:", error);
-                return `${dateStr}_unknown_location.jpg`;
+            // 位置情報を取得する関数
+            function getLocation() {
+                return new Promise((resolve, reject) => {
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            position => resolve(position.coords),
+                            error => reject(error)
+                        );
+                    } else {
+                        reject(new Error("Geolocation is not supported by this browser."));
+                    }
+                });
             }
-        }
 
+            // ファイル名を生成する関数
+            async function generateFileName() {
+                const now = new Date();
+                const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+
+                try {
+                    const coords = await getLocation();
+                    return `${dateStr}_${coords.latitude}_${coords.longitude}.jpg`;
+                } catch (error) {
+                    console.error("Error getting location:", error);
+                    return `${dateStr}_unknown_location.jpg`;
+                }
+            }
+        
 
 
 
@@ -128,7 +128,7 @@
             }
         });
 
-        document.getElementById('takePhoto').addEventListener('click', async function () {
+                            document.getElementById('takePhoto').addEventListener('click', async function () {
             if (stream) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;

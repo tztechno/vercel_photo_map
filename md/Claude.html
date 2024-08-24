@@ -1,0 +1,175 @@
+
+< !DOCTYPE html >
+    <html lang="ja">
+
+        <head>
+            <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>カメラ操作とファイル送信</title>
+                    <style>
+        /* 既存のスタイルはそのまま */
+                    </style>
+                </head>
+
+                <body>
+                    <!-- 既存のHTML要素はそのまま -->
+
+                    <script>
+                        let stream;
+                        let currentFacingMode = 'user';
+                        const video = document.getElementById('videoElement');
+                        const canvas = document.getElementById('photoCanvas');
+                        const fileInput = document.getElementById('fileInput');
+                        const cameraFacingLabel = document.getElementById('cameraFacingLabel');
+
+                        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw93_dkhcUdjMN89v_6EzhiIQQp-RHQk3oa1aYlPml3kv-Y0s3cH827hddS-BSKK87s5A/exec';
+
+                        function updateCameraFacingLabel() {
+                            cameraFacingLabel.textContent = currentFacingMode === 'user' ? '前面カメラ' : '背面カメラ';
+        }
+
+
+        
+                        // 位置情報を取得する関数
+                        function getLocation() {
+            return new Promise((resolve, reject) => {
+                if ("geolocation" in navigator) {
+                            navigator.geolocation.getCurrentPosition(
+                                position => resolve(position.coords),
+                                error => reject(error)
+                            );
+                } else {
+                            reject(new Error("Geolocation is not supported by this browser."));
+                }
+            });
+        }
+
+                        // ファイル名を生成する関数
+                        async function generateFileName() {
+            const now = new Date();
+                        const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+
+                        try {
+                const coords = await getLocation();
+                        return `${dateStr}_${coords.latitude}_${coords.longitude}.jpg`;
+            } catch (error) {
+                            console.error("Error getting location:", error);
+                        return `${dateStr}_unknown_location.jpg`;
+            }
+        }
+
+
+
+                        video.addEventListener('loadedmetadata', function () {
+                            console.log('ビデオメタデータがロードされました');
+                        video.play();
+                        video.style.display = 'block';
+                        console.log('ビデオを表示しました');
+        });
+
+                        document.getElementById('cameraOn').addEventListener('click', async function () {
+            try {
+                            console.log('カメラをオンにしています...');
+                        const constraints = {
+                            video: {facingMode: currentFacingMode }
+                };
+                        console.log('制約:', constraints);
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        console.log('ストリームを取得しました:', stream);
+                        video.srcObject = stream;
+                        console.log('ビデオソースを設定しました');
+                        updateCameraFacingLabel();
+            } catch (err) {
+                            console.error('カメラの起動に失敗しました:', err);
+            }
+        });
+
+                        document.getElementById('takePhoto').addEventListener('click', async function () {
+            if (stream) {
+                            canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
+
+                        const fileName = await generateFileName();
+
+                        canvas.toBlob(function (blob) {
+                    const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = fileName;
+                        link.click();
+                }, 'image/jpeg');
+            }
+        });
+
+                        document.getElementById('cameraOff').addEventListener('click', function () {
+            if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                        video.srcObject = null;
+                        video.style.display = 'none';
+            }
+        });
+
+                        document.getElementById('selectToSend').addEventListener('click', function () {
+                            fileInput.click();
+        });
+
+                        fileInput.addEventListener('change', async function (event) {
+            const file = event.target.files[0];
+                        if (file) {
+                const newFileName = await generateFileName();
+                        const newFile = new File([file], newFileName, {type: file.type });
+                        sendFileToGoogleDrive(newFile);
+            }
+        });
+
+                        function sendFileToGoogleDrive(file) {
+            const reader = new FileReader();
+                        reader.onload = function (e) {
+                const formData = new FormData();
+                        formData.append('file', e.target.result);
+                        formData.append('filename', file.name);
+
+                        console.log('Sending file:', file.name);
+
+                        fetch(GAS_WEB_APP_URL, {
+                            method: 'POST',
+                        body: formData,
+                        mode: 'cors'
+                })
+                    .then(response => {
+                            console.log('Response status:', response.status);
+                        return response.text();
+                    })
+                    .then(data => {
+                            console.log('Response data:', data);
+                        try {
+                            const jsonData = JSON.parse(data);
+                        console.log('ファイルが正常に送信されました:', jsonData.url);
+                        alert('ファイルがGoogle Driveに送信されました');
+                        } catch (error) {
+                            console.error('JSONのパースに失敗しました:', error);
+                        alert('サーバーからの応答の解析に失敗しました');
+                        }
+                    })
+                    .catch(error => {
+                            console.error('ファイルの送信中にエラーが発生しました:', error);
+                        alert('ファイルの送信に失敗しました');
+                    });
+            };
+                        reader.readAsDataURL(file);
+        }
+
+                        const switchCameraButton = document.createElement('button');
+                        switchCameraButton.textContent = 'Switch Camera';
+                        switchCameraButton.addEventListener('click', function () {
+            if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+            }
+                        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                        document.getElementById('cameraOn').click();
+        });
+                        document.querySelector('.button-container').appendChild(switchCameraButton);
+                    </script>
+                </body>
+
+            </html>
