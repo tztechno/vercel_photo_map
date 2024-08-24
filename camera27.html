@@ -61,11 +61,42 @@
         const fileInput = document.getElementById('fileInput');
         const cameraFacingLabel = document.getElementById('cameraFacingLabel');
 
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw93_dkhcUdjMN89v_6EzhiIQQp-RHQk3oa1aYlPml3kv-Y0s3cH827hddS-BSKK87s5A/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAMEYxbQJAjJ3cGZEUzD26JMvup_86a3TQ6NQdcbaDKT2OrIPJ1k2pjgp_H3X_Wner5w/exec';
 
         function updateCameraFacingLabel() {
             cameraFacingLabel.textContent = currentFacingMode === 'user' ? '前面カメラ' : '背面カメラ';
         }
+
+
+            // 位置情報を取得する関数
+            function getLocation() {
+                return new Promise((resolve, reject) => {
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            position => resolve(position.coords),
+                            error => reject(error)
+                        );
+                    } else {
+                        reject(new Error("Geolocation is not supported by this browser."));
+                    }
+                });
+            }
+
+            // ファイル名を生成する関数
+            async function generateFileName() {
+                const now = new Date();
+                const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+
+                try {
+                    const coords = await getLocation();
+                    return `${dateStr}_${coords.latitude}_${coords.longitude}.jpg`;
+                } catch (error) {
+                    console.error("Error getting location:", error);
+                    return `${dateStr}_unknown_location.jpg`;
+                }
+            }
+        
+
 
         video.addEventListener('loadedmetadata', function () {
             console.log('ビデオメタデータがロードされました');
@@ -91,16 +122,20 @@
             }
         });
 
-        document.getElementById('takePhoto').addEventListener('click', function () {
+            document.getElementById('takePhoto').addEventListener('click', async function () {
+
             if (stream) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
 
+                const fileName = await generateFileName();
+
+
                 canvas.toBlob(function (blob) {
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
-                    link.download = 'photo.jpg';
+                    link.download = fileName;
                     link.click();
                 }, 'image/jpeg');
             }
@@ -140,7 +175,9 @@
                     mode: 'cors'
                 })
                     .then(response => {
-                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                         return response.text();
                     })
                     .then(data => {
@@ -156,7 +193,7 @@
                     })
                     .catch(error => {
                         console.error('ファイルの送信中にエラーが発生しました:', error);
-                        alert('ファイルの送信に失敗しました');
+                        alert('ファイルの送信に失敗しました: ' + error.message);
                     });
             };
             reader.readAsDataURL(file);

@@ -23,12 +23,20 @@
         #videoElement {
             width: 100%;
             max-width: 640px;
+            height: auto;
             margin: 20px auto;
             display: none;
+            border: 1px solid #000;
         }
 
         #photoCanvas {
             display: none;
+        }
+
+        #cameraFacingLabel {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -41,39 +49,93 @@
         <button id="selectToSend">Select To Send</button>
     </div>
     <input type="file" id="fileInput" style="display: none;">
-
-    <video id="videoElement" autoplay></video>
+    <div id="cameraFacingLabel"></div>
+    <video id="videoElement" autoplay playsinline></video>
     <canvas id="photoCanvas"></canvas>
 
     <script>
         let stream;
+        let currentFacingMode = 'user';
         const video = document.getElementById('videoElement');
         const canvas = document.getElementById('photoCanvas');
         const fileInput = document.getElementById('fileInput');
+        const cameraFacingLabel = document.getElementById('cameraFacingLabel');
 
-        // GAS Web AppのURL（実際のURLに置き換えてください）
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/your-gas-web-app-id/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAMEYxbQJAjJ3cGZEUzD26JMvup_86a3TQ6NQdcbaDKT2OrIPJ1k2pjgp_H3X_Wner5w/exec';
+
+        function updateCameraFacingLabel() {
+            cameraFacingLabel.textContent = currentFacingMode === 'user' ? '前面カメラ' : '背面カメラ';
+        }
+
+
+            // 位置情報を取得する関数
+            function getLocation() {
+                return new Promise((resolve, reject) => {
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            position => resolve(position.coords),
+                            error => reject(error)
+                        );
+                    } else {
+                        reject(new Error("Geolocation is not supported by this browser."));
+                    }
+                });
+            }
+
+            // ファイル名を生成する関数
+            async function generateFileName() {
+                const now = new Date();
+                const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+
+                try {
+                    const coords = await getLocation();
+                    return `${dateStr}_${coords.latitude}_${coords.longitude}.jpg`;
+                } catch (error) {
+                    console.error("Error getting location:", error);
+                    return `${dateStr}_unknown_location.jpg`;
+                }
+            }
+        
+
+
+        video.addEventListener('loadedmetadata', function () {
+            console.log('ビデオメタデータがロードされました');
+            video.play();
+            video.style.display = 'block';
+            console.log('ビデオを表示しました');
+        });
 
         document.getElementById('cameraOn').addEventListener('click', async function () {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                console.log('カメラをオンにしています...');
+                const constraints = {
+                    video: { facingMode: currentFacingMode }
+                };
+                console.log('制約:', constraints);
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log('ストリームを取得しました:', stream);
                 video.srcObject = stream;
-                video.style.display = 'block';
+                console.log('ビデオソースを設定しました');
+                updateCameraFacingLabel();
             } catch (err) {
                 console.error('カメラの起動に失敗しました:', err);
             }
         });
 
-        document.getElementById('takePhoto').addEventListener('click', function () {
+            document.getElementById('takePhoto').addEventListener('click', async function () {
+
             if (stream) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
 
+                const fileName = await generateFileName();
+
+
                 canvas.toBlob(function (blob) {
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
-                    link.download = 'photo.jpg';
+                    link.download = fileName;
                     link.click();
                 }, 'image/jpeg');
             }
@@ -82,6 +144,7 @@
         document.getElementById('cameraOff').addEventListener('click', function () {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
                 video.style.display = 'none';
             }
         });
@@ -98,15 +161,13 @@
         });
 
         function sendFileToGoogleDrive(file) {
-            const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIj9YikSWa5jcZpEny_sU4JeAhcNwsjq9A_NHSVK-MbDq1HSqCoRefbF3o2CkTaaO5sw/exec'
-
             const reader = new FileReader();
             reader.onload = function (e) {
                 const formData = new FormData();
                 formData.append('file', e.target.result);
                 formData.append('filename', file.name);
 
-                console.log('Sending file:', file.name); // デバッグ情報
+                console.log('Sending file:', file.name);
 
                 fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
@@ -114,11 +175,13 @@
                     mode: 'cors'
                 })
                     .then(response => {
-                        console.log('Response status:', response.status); // デバッグ情報
-                        return response.text(); // .json()から.text()に変更
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.text();
                     })
                     .then(data => {
-                        console.log('Response data:', data); // デバッグ情報
+                        console.log('Response data:', data);
                         try {
                             const jsonData = JSON.parse(data);
                             console.log('ファイルが正常に送信されました:', jsonData.url);
@@ -130,14 +193,23 @@
                     })
                     .catch(error => {
                         console.error('ファイルの送信中にエラーが発生しました:', error);
-                        alert('ファイルの送信に失敗しました');
+                        alert('ファイルの送信に失敗しました: ' + error.message);
                     });
             };
             reader.readAsDataURL(file);
         }
-    
+
+        const switchCameraButton = document.createElement('button');
+        switchCameraButton.textContent = 'Switch Camera';
+        switchCameraButton.addEventListener('click', function () {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            document.getElementById('cameraOn').click();
+        });
+        document.querySelector('.button-container').appendChild(switchCameraButton);
     </script>
 </body>
 
 </html>
-
