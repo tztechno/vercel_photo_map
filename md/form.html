@@ -1,0 +1,43 @@
+<html>
+
+<body>
+<form id="myForm">
+    <input type="file" id="fileInput" />
+    <input type="button" value="Upload File" onclick="uploadFile()" />
+</form>
+<div id="output"></div>
+
+<script>
+
+    function uploadFile() {
+        var fileInput = document.getElementById('fileInput');
+        var file = fileInput.files[0];
+        var reader = new FileReader();
+        var appurl = 'https://script.google.com/macros/s/AKfycbz4ZFHBemGkc6ieQOQCzqI0R16y2cS_tAoc5WVReNBI1jIU7dgp8XdYaObuIwEbQfsxBg/exec';
+
+        reader.onload = function (e) {
+            var data = e.target.result;
+            fetch(appurl, {
+                method: 'POST',
+                mode: 'no-cors',
+                cache: 'no-cache',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ data: data, fileName: file.name })
+            }).then(response => {
+                document.getElementById('output').innerHTML = 'File uploaded successfully';
+            }).catch(error => {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = 'Error uploading file';
+            });
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+</script>
+
+</body>
+
+</html>

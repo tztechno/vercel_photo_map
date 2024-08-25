@@ -46,8 +46,16 @@
         <button id="cameraOn">Camera On</button>
         <button id="takePhoto">Take Photo</button>
         <button id="cameraOff">Camera Off</button>
-        <button id="selectToSend">Select To Send</button>
+
     </div>
+
+<form id="myForm">
+    <input type="file" id="fileInput" />
+    <input type="button" value="Upload File" onclick="uploadFile()" />
+</form>
+<div id="output"></div>
+
+
     <input type="file" id="fileInput" style="display: none;">
     <div id="cameraFacingLabel"></div>
     <video id="videoElement" autoplay playsinline></video>
@@ -61,7 +69,7 @@
         const fileInput = document.getElementById('fileInput');
         const cameraFacingLabel = document.getElementById('cameraFacingLabel');
 
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw93_dkhcUdjMN89v_6EzhiIQQp-RHQk3oa1aYlPml3kv-Y0s3cH827hddS-BSKK87s5A/exec';
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx4-Lc84yJ-ruC9dTKLg2jdYJw547TztRc6uN8UIUk-szNo-kzNPCjdhndgaFnRh1Qsig/exec';
 
         function updateCameraFacingLabel() {
             cameraFacingLabel.textContent = currentFacingMode === 'user' ? '前面カメラ' : '背面カメラ';
@@ -98,12 +106,6 @@
         
 
 
-
-
-
-
-
-
         video.addEventListener('loadedmetadata', function () {
             console.log('ビデオメタデータがロードされました');
             video.play();
@@ -128,7 +130,8 @@
             }
         });
 
-                            document.getElementById('takePhoto').addEventListener('click', async function () {
+            document.getElementById('takePhoto').addEventListener('click', async function () {
+
             if (stream) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -154,53 +157,34 @@
             }
         });
 
-        document.getElementById('selectToSend').addEventListener('click', function () {
-            fileInput.click();
-        });
 
-        fileInput.addEventListener('change', function (event) {
-            const file = event.target.files[0];
-            if (file) {
-                sendFileToGoogleDrive(file);
-            }
-        });
+        function uploadFile() {
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+            var reader = new FileReader();
+            var appurl = 'https://script.google.com/macros/s/AKfycbz4ZFHBemGkc6ieQOQCzqI0R16y2cS_tAoc5WVReNBI1jIU7dgp8XdYaObuIwEbQfsxBg/exec';
 
-        function sendFileToGoogleDrive(file) {
-            const reader = new FileReader();
             reader.onload = function (e) {
-                const formData = new FormData();
-                formData.append('file', e.target.result);
-                formData.append('filename', file.name);
-
-                console.log('Sending file:', file.name);
-
-                fetch(GAS_WEB_APP_URL, {
+                var data = e.target.result;
+                fetch(appurl, {
                     method: 'POST',
-                    body: formData,
-                    mode: 'cors'
-                })
-                    .then(response => {
-                        console.log('Response status:', response.status);
-                        return response.text();
-                    })
-                    .then(data => {
-                        console.log('Response data:', data);
-                        try {
-                            const jsonData = JSON.parse(data);
-                            console.log('ファイルが正常に送信されました:', jsonData.url);
-                            alert('ファイルがGoogle Driveに送信されました');
-                        } catch (error) {
-                            console.error('JSONのパースに失敗しました:', error);
-                            alert('サーバーからの応答の解析に失敗しました');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('ファイルの送信中にエラーが発生しました:', error);
-                        alert('ファイルの送信に失敗しました');
-                    });
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ data: data, fileName: file.name })
+                }).then(response => {
+                    document.getElementById('output').innerHTML = 'File uploaded successfully';
+                }).catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('output').innerHTML = 'Error uploading file';
+                });
             };
+
             reader.readAsDataURL(file);
         }
+
 
         const switchCameraButton = document.createElement('button');
         switchCameraButton.textContent = 'Switch Camera';
